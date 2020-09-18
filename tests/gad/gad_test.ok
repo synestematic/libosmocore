@@ -1,0 +1,5 @@
+--- test_gad_lat_lon_dec_enc_stability
+osmo_gad_dec_lat() -> osmo_gad_enc_lat() of 16777216 values successful
+osmo_gad_dec_lon() -> osmo_gad_enc_lon() of 16777216 values successful
+--- test_gad_enc_dec
+[0] Ellipsoid-point-with-uncertainty-circle: ok
