@@ -1443,6 +1443,105 @@ static void osmo_strnchr_test(void)
 	}
 }
 
+struct float_str_to_micros_test {
+	const char *str;
+	int32_t expect_val;
+	int expect_err;
+};
+struct float_str_to_micros_test float_str_to_micros_tests[] = {
+	{ "0", 0 },
+	{ "1", 1000000 },
+	{ "12.345", 12345000 },
+	{ "+12.345", 12345000 },
+	{ "-12.345", -12345000 },
+	{ "0.345", 345000 },
+	{ ".345", 345000 },
+	{ "-0.345", -345000 },
+	{ "-.345", -345000 },
+	{ "12.", 12000000 },
+	{ "-180", -180000000 },
+	{ "180", 180000000 },
+	{ "360", 360000000 },
+	{ "123.4567890123", 123456789 },
+	{ "123.4567890123456789012345", 123456789 },
+	{ "2147.483647", 2147483647 },
+	{ "-2147.483647", -2147483647 },
+	{ "-2147.483648", -2147483648 },
+	{ "2147.483648", .expect_err = -ERANGE },
+	{ "-2147.483649", .expect_err = -ERANGE },
+	{ "10000", .expect_err = -ERANGE },
+	{ "-10000", .expect_err = -ERANGE },
+	{ "9999999999999", .expect_err = -ERANGE },
+	{ "-9999999999999", .expect_err = -ERANGE },
+	{ "1.2.3", .expect_err = -EINVAL },
+	{ "foo", .expect_err = -EINVAL },
+	{ "1.foo", .expect_err = -EINVAL },
+	{ "1.foo", .expect_err = -EINVAL },
+	{ "12.-345", .expect_err = -EINVAL },
+	{ "-12.-345", .expect_err = -EINVAL },
+	{ "12.+345", .expect_err = -EINVAL },
+	{ "+12.+345", .expect_err = -EINVAL },
+	{ "", .expect_err = -EINVAL },
+	{ NULL, .expect_err = -EINVAL },
+};
+void test_float_str_to_micros()
+{
+	const struct float_str_to_micros_test *t;
+	printf("--- %s\n", __func__);
+	for (t = float_str_to_micros_tests;
+	     (t - float_str_to_micros_tests) < ARRAY_SIZE(float_str_to_micros_tests);
+	     t++) {
+		int rc;
+		int32_t val;
+		rc = osmo_float_str_to_micros(&val, t->str);
+		printf("osmo_float_str_to_micros(%s) -> rc=%d val=%d\n", osmo_quote_str(t->str, -1), rc, val);
+
+		if (rc != t->expect_err)
+			printf("  ERROR: expected rc=%d\n", t->expect_err);
+		if (val != t->expect_val)
+			printf("  ERROR: expected val=%d\n", t->expect_val);
+	}
+}
+
+struct micros_to_float_str_test {
+	int32_t val;
+	const char *expect_str;
+};
+struct micros_to_float_str_test micros_to_float_str_tests[] = {
+	{ 0, "0" },
+	{ 1000000, "1" },
+	{ -1000000, "-1" },
+	{ 1000001, "1.000001" },
+	{ -1000001, "-1.000001" },
+	{ 1000100, "1.0001" },
+	{ -1010000, "-1.01" },
+	{ 1100000, "1.1" },
+	{ 10000000, "10" },
+	{ -10000000, "-10" },
+	{ 100000000, "100" },
+	{ -100000000, "-100" },
+	{ 2147483647, "2147.483647" },
+	{ -2147483648, "-2147.483648" },
+};
+void test_micros_to_float_str()
+{
+	const struct micros_to_float_str_test *t;
+	printf("--- %s\n", __func__);
+	for (t = micros_to_float_str_tests;
+	     (t - micros_to_float_str_tests) < ARRAY_SIZE(micros_to_float_str_tests);
+	     t++) {
+		char buf[128];
+		int rc;
+		rc = osmo_micros_to_float_str_buf(buf, sizeof(buf), t->val);
+		printf("osmo_micros_to_float_str_buf(%d) -> rc=%d str=%s\n", t->val, rc, osmo_quote_str(buf, -1));
+
+		if (rc != strlen(buf))
+			printf("  ERROR: expected rc=%zu\n", strlen(buf));
+		if (strcmp(buf, t->expect_str))
+			printf("  ERROR: expected str=%s\n", osmo_quote_str(t->expect_str, -1));
+	}
+}
+
 int main(int argc, char **argv)
 {
 	static const struct log_info log_info = {};
@@ -1468,5 +1567,7 @@ int main(int argc, char **argv)
 	name_c_impl_test();
 	osmo_print_n_test();
 	osmo_strnchr_test();
+	test_float_str_to_micros();
+	test_micros_to_float_str();
 	return 0;
 }

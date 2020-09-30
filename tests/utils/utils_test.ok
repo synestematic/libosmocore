@@ -505,3 +505,53 @@ osmo_strnchr("foo=bar", 3, '=') -> -1
 osmo_strnchr("foo=bar", 0, '=') -> -1
 osmo_strnchr("foo", 9, '=') -> -1
 osmo_strnchr("foo", 9, '\0') -> 3
+--- test_float_str_to_micros
+osmo_float_str_to_micros("0") -> rc=0 val=0
+osmo_float_str_to_micros("1") -> rc=0 val=1000000
+osmo_float_str_to_micros("12.345") -> rc=0 val=12345000
+osmo_float_str_to_micros("+12.345") -> rc=0 val=12345000
+osmo_float_str_to_micros("-12.345") -> rc=0 val=-12345000
+osmo_float_str_to_micros("0.345") -> rc=0 val=345000
+osmo_float_str_to_micros(".345") -> rc=0 val=345000
+osmo_float_str_to_micros("-0.345") -> rc=0 val=-345000
+osmo_float_str_to_micros("-.345") -> rc=0 val=-345000
+osmo_float_str_to_micros("12.") -> rc=0 val=12000000
+osmo_float_str_to_micros("-180") -> rc=0 val=-180000000
+osmo_float_str_to_micros("180") -> rc=0 val=180000000
+osmo_float_str_to_micros("360") -> rc=0 val=360000000
+osmo_float_str_to_micros("123.4567890123") -> rc=0 val=123456789
+osmo_float_str_to_micros("123.4567890123456789012345") -> rc=0 val=123456789
+osmo_float_str_to_micros("2147.483647") -> rc=0 val=2147483647
+osmo_float_str_to_micros("-2147.483647") -> rc=0 val=-2147483647
+osmo_float_str_to_micros("-2147.483648") -> rc=0 val=-2147483648
+osmo_float_str_to_micros("2147.483648") -> rc=-34 val=0
+osmo_float_str_to_micros("-2147.483649") -> rc=-34 val=0
+osmo_float_str_to_micros("10000") -> rc=-34 val=0
+osmo_float_str_to_micros("-10000") -> rc=-34 val=0
+osmo_float_str_to_micros("9999999999999") -> rc=-34 val=0
+osmo_float_str_to_micros("-9999999999999") -> rc=-34 val=0
+osmo_float_str_to_micros("1.2.3") -> rc=-22 val=0
+osmo_float_str_to_micros("foo") -> rc=-22 val=0
+osmo_float_str_to_micros("1.foo") -> rc=-22 val=0
+osmo_float_str_to_micros("1.foo") -> rc=-22 val=0
+osmo_float_str_to_micros("12.-345") -> rc=-22 val=0
+osmo_float_str_to_micros("-12.-345") -> rc=-22 val=0
+osmo_float_str_to_micros("12.+345") -> rc=-22 val=0
+osmo_float_str_to_micros("+12.+345") -> rc=-22 val=0
+osmo_float_str_to_micros("") -> rc=-22 val=0
+osmo_float_str_to_micros(NULL) -> rc=-22 val=0
+--- test_micros_to_float_str
+osmo_micros_to_float_str_buf(0) -> rc=1 str="0"
+osmo_micros_to_float_str_buf(1000000) -> rc=1 str="1"
+osmo_micros_to_float_str_buf(-1000000) -> rc=2 str="-1"
+osmo_micros_to_float_str_buf(1000001) -> rc=8 str="1.000001"
+osmo_micros_to_float_str_buf(-1000001) -> rc=9 str="-1.000001"
+osmo_micros_to_float_str_buf(1000100) -> rc=6 str="1.0001"
+osmo_micros_to_float_str_buf(-1010000) -> rc=5 str="-1.01"
+osmo_micros_to_float_str_buf(1100000) -> rc=3 str="1.1"
+osmo_micros_to_float_str_buf(10000000) -> rc=2 str="10"
+osmo_micros_to_float_str_buf(-10000000) -> rc=3 str="-10"
+osmo_micros_to_float_str_buf(100000000) -> rc=3 str="100"
+osmo_micros_to_float_str_buf(-100000000) -> rc=4 str="-100"
+osmo_micros_to_float_str_buf(2147483647) -> rc=11 str="2147.483647"
+osmo_micros_to_float_str_buf(-2147483648) -> rc=12 str="-2147.483648"

@@ -279,6 +279,10 @@ struct osmo_strbuf {
 
 bool osmo_str_startswith(const char *str, const char *startswith_str);
 
+int osmo_float_str_to_micros(int32_t *val, const char *str);
+int osmo_micros_to_float_str_buf(char *buf, size_t buflen, int32_t val);
+char *osmo_micros_to_float_str_c(void *ctx, int32_t val);
+
 /*! Translate a buffer function to a talloc context function.
  * This is the full function body of a char *foo_name_c(void *ctx, val...) function, implemented by an
  * int foo_name_buf(buf, buflen, val...) function:

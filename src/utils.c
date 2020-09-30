@@ -30,6 +30,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <inttypes.h>
+#include <limits.h>
 
 #include <osmocom/core/utils.h>
 #include <osmocom/core/bit64gen.h>
@@ -1206,6 +1207,129 @@ bool osmo_str_startswith(const char *str, const char *startswith_str)
 	if (!str)
 		return false;
 	return strncmp(str, startswith_str, strlen(startswith_str)) == 0;
+}
+
+/*! Convert a string of a floating point number to a signed int with factor of a million.
+ * For example, convert "-1.23" to -1230000.
+ * The usable range is "-2147.483648" .. "2147.483647", resulting in -2147483648 .. 2147483647.
+ * \param[out] val  Returned integer value.
+ * \param[in] str  String of a float, like '-12.345'.
+ * \returns 0 on success, negative on error.
+ */
+int osmo_float_str_to_micros(int32_t *val, const char *str)
+{
+	const char *point;
+	char *endptr;
+	int32_t sign = 1;
+	int32_t integer = 0;
+	int32_t micros = 0;
+
+	OSMO_ASSERT(val);
+	*val = 0;
+
+	if (!str || !str[0])
+		return -EINVAL;
+	point = strchr(str, '.');
+
+	if (str[0] == '-') {
+		str = str + 1;
+		sign = -1;
+	} else if (str[0] == '+') {
+		str = str + 1;
+	}
+	if (strchr(str, '-') || strchr(str, '+'))
+		return -EINVAL;
+
+	if (!point || point > str) {
+		errno = 0;
+		integer = strtol(str, &endptr, 10);
+		if ((errno == ERANGE && (integer == LONG_MAX || integer == LONG_MIN))
+		    || (errno != 0 && integer == 0))
+			return -ERANGE;
+
+		if ((point && endptr != point)
+		    || (!point && *endptr))
+			return -EINVAL;
+	}
+
+	if (point && point[1] != '\0') {
+		/* limit the number of digits parsed to 6 */
+		char decimal[7];
+		int i;
+		OSMO_STRLCPY_ARRAY(decimal, point+1);
+
+		/* fill with zeros to make exactly 6 digits */
+		for (i = strlen(decimal); i < 6; i++)
+			decimal[i] = '0';
+		decimal[6] = '\0';
+
+		errno = 0;
+		micros = strtol(decimal, &endptr, 10);
+		if ((errno == ERANGE && (micros == LONG_MAX || micros == LONG_MIN))
+		    || (errno != 0 && micros == 0))
+			return -ERANGE;
+
+		if (*endptr)
+			return -EINVAL;
+	}
+
+	/* Do not surpass the resulting int32_t range of -2147483648..2147483647,
+	 * i.e. -2147.483648 .. 2147.483647 */
+	if (integer > 2147)
+		return -ERANGE;
+	if (integer == 2147 && micros > 483647) {
+		/* Special case for INT32_MIN, because "-1 * 2147483648" can't be calculated in int32_t. */
+		if (sign < 0 && micros == 483648) {
+			*val = -2147483648;
+			return 0;
+		}
+		return -ERANGE;
+	}
+
+	*val = sign * (integer * 1000000 + micros);
+	return 0;
+}
+
+/*! Convert an integer with a factor of a million to a floating point string.
+ * For example, convert -1230000 to "-1.23".
+ * \param[out] buf  Buffer to write string to.
+ * \param[in] buflen  sizeof(buf).
+ * \param[in] val  Value to convert to float.
+ * \returns number of chars that would be written, like snprintf().
+ */
+int osmo_micros_to_float_str_buf(char *buf, size_t buflen, int32_t val)
+{
+	struct osmo_strbuf sb = { .buf = buf, .len = buflen };
+	/* -INT32_MIN > INT32_MAX, so use uint32_t */
+	int64_t v = val;
+	if (v < 0) {
+		OSMO_STRBUF_PRINTF(sb, "-");
+		v = -v;
+	}
+
+	OSMO_STRBUF_PRINTF(sb, "%" PRId64, v / 1000000);
+	v %= 1000000;
+	if (v) {
+		/* skip trailing zeros */
+		int w = 6;
+		while (!(v % 10)) {
+			v /= 10;
+			w--;
+		}
+		OSMO_STRBUF_PRINTF(sb, ".%0*" PRId64, w, v);
+	}
+	return sb.chars_needed;
+}
+
+/*! Convert an integer with a factor of a million to a floating point string.
+ * For example, convert -1230000 to "-1.23".
+ * \param[in] ctx  Talloc ctx to allocate string buffer from.
+ * \param[in] val  Value to convert to float.
+ * \returns resulting string, dynamically allocated.
+ */
+char *osmo_micros_to_float_str_c(void *ctx, int32_t val)
+{
+	OSMO_NAME_C_IMPL(ctx, 16, "ERROR", osmo_micros_to_float_str_buf, val)
 }
 
 /*! @} */
